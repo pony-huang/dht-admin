@@ -220,10 +220,24 @@ func TestBitTorrent(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec(`create table torrents (torrent jsonb)`)
+	// Check if table exists
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name='torrents'")
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer rows.Close()
+	// If the table doesn't exist, create it
+	if !rows.Next() {
+		_, err = db.Exec(`CREATE TABLE torrents (torrent jsonb)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	//_, err = db.Exec(`create table torrents (torrent jsonb)`)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	torrent := BitTorrent{
 		InfoHash: "0123456789abcdef",

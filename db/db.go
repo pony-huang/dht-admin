@@ -31,6 +31,19 @@ func NewTorrentDB(dbFile string) (*TorrentDB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Check if table exists
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name='torrents'")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	// If the table doesn't exist, create it
+	if !rows.Next() {
+		_, err = db.Exec(`CREATE TABLE torrents (torrent jsonb)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	return &TorrentDB{db: db}, nil
 }
 
