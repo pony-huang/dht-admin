@@ -2,24 +2,12 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
-	"fmt"
+	. "github.com/pony-huang/dht-admin/db"
 	"github.com/shiyanhui/dht"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 )
-
-type file struct {
-	Path   []interface{} `json:"path"`
-	Length int           `json:"length"`
-}
-
-type bitTorrent struct {
-	InfoHash string `json:"infohash"`
-	Name     string `json:"name"`
-	Files    []file `json:"files,omitempty"`
-	Length   int    `json:"length,omitempty"`
-}
 
 func main() {
 	go func() {
@@ -27,6 +15,14 @@ func main() {
 	}()
 
 	w := dht.NewWire(65536, 1024, 256)
+
+	// init db
+	db, err := NewTorrentDB("./torrent.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	go func() {
 		for resp := range w.Response() {
 			metadata, err := dht.Decode(resp.MetadataInfo)
@@ -39,18 +35,18 @@ func main() {
 				continue
 			}
 
-			bt := bitTorrent{
+			bt := BitTorrent{
 				InfoHash: hex.EncodeToString(resp.InfoHash),
 				Name:     info["name"].(string),
 			}
 
 			if v, ok := info["files"]; ok {
 				files := v.([]interface{})
-				bt.Files = make([]file, len(files))
+				bt.Files = make([]File, len(files))
 
 				for i, item := range files {
 					f := item.(map[string]interface{})
-					bt.Files[i] = file{
+					bt.Files[i] = File{
 						Path:   f["path"].([]interface{}),
 						Length: f["length"].(int),
 					}
@@ -59,9 +55,9 @@ func main() {
 				bt.Length = info["length"].(int)
 			}
 
-			data, err := json.Marshal(bt)
-			if err == nil {
-				fmt.Printf("%s\n\n", data)
+			err = db.InsertTorrent(bt)
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
 	}()
